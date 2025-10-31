@@ -1,0 +1,26 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+:root {
+  --main: #3a405a;
+  --second: #f9dec9;
+  --accent: #e9afa3;
+  --accent2: #99b2dd;
+  --font-dark: #99b2ddf1;
+  --font-light: #3a405a;
+}
+body {
+  #table-container {
+    table {
+      border-collapse: collapse;
+      margin: 1rem;
+    }
+    td {
+      width: 10px;
+      height: 10px;
+      border: 1px solid #333;
+    }
+  }
+}
