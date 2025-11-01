@@ -4,23 +4,28 @@
   box-sizing: border-box;
 }
 :root {
-  --main: #3a405a;
-  --second: #f9dec9;
-  --accent: #e9afa3;
-  --accent2: #99b2dd;
-  --font-dark: #99b2ddf1;
-  --font-light: #3a405a;
+  --body_background: #0b0c13;
+  --body_color: #eee;
+  --button_background: #444;
+  --button_color: #fff;
+  --button_background_hoover: #666;
 }
 body {
-  #table-container {
-    table {
-      border-collapse: collapse;
-      margin: 1rem;
-    }
-    td {
-      width: 10px;
-      height: 10px;
-      border: 1px solid #333;
-    }
+  background-color: var(--body_background);
+  color: var(--body_color);
+  font-family: sans-serif;
+  text-align: center;
+
+  button {
+    background: var(--button_background);
+    color: var(--button_color);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+  button:hover {
+    background: var(--button_background_hoover);
   }
 }
