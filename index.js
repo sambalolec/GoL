@@ -48,6 +48,7 @@ function r_Pentomino() {
 }
 r_Pentomino();
 
+let rounds = 0;
 function transformMatrix() {
   // Wrapper horizontal
   const x_ = (val) => {
@@ -101,15 +102,18 @@ function transformMatrix() {
       }
     }
   }
+  rounds += 1;
   return m;
 }
+
+/********************************************************* Output *********************************************/
 
 function start() {
   matrix = transformMatrix();
   viewport_container(matrix);
+  const counter = document.getElementById("counter");
+  counter.textContent = "Runden: " + rounds;
 }
-
-/********************************************************* Output *********************************************/
 
 // Viewport für die Seite bauen
 function viewport_container(matrix) {
@@ -145,26 +149,32 @@ let loop = null;
 let started = false;
 viewport_container(matrix); // Erstes Bild
 
-// Startbutton
-document.getElementById("Start").addEventListener("click", () => {
+// Controlbutton
+document.getElementById("control").addEventListener("click", () => {
+  const butt = document.getElementById("control");
   if (!started) {
     loop = setInterval(start, intervall);
     started = true;
+
+    butt.textContent = "Stop";
+  } else {
+    clearInterval(loop);
+    started = false;
+    butt.textContent = "Start";
   }
 });
 
-// Button zum Anhalten
-document.getElementById("Stop").addEventListener("click", () => {
-  clearInterval(loop);
-  started = false;
+// Button zum Resetten
+document.getElementById("Reset").addEventListener("click", () => {
+  // Dummy
 });
 
 /*******************************************************************************
 
 Spiel läuft soweit, scheinbar fehlerfrei.
+Rundenzähler ist drin.
 
 Fehlt noch:
-- Rundenzähler
 - Editor
 - Rulemanagement
 - Was wo man draufklickt und dann was zu lesen kriegt

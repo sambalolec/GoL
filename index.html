@@ -7,10 +7,19 @@
   </head>
   <body>
     <h1>Conway's Game of Life</h1>
-    <button id="Start">Start</button>
-    <button id="Stop">Stop</button>
+
+    <header>
+      <nav class="navi">
+        <span class="counter" id="counter">Runden: 0</span>
+        <div class="button-container">
+          <button class="knopp" id="control">Start</button>
+          <button class="knopp" id="Reset">Reset</button>
+        </div>
+      </nav>
+    </header>
 
     <div id="viewbox-container"></div>
+
     <script src="index.js"></script>
   </body>
 </html>

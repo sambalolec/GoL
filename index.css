@@ -16,16 +16,35 @@ body {
   font-family: sans-serif;
   text-align: center;
 
-  button {
-    background: var(--button_background);
-    color: var(--button_color);
-    border: none;
-    padding: 10px 20px;
-    border-radius: 8px;
-    cursor: pointer;
-    margin-top: 10px;
-  }
-  button:hover {
-    background: var(--button_background_hoover);
+  .navi {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* zentriert standardmäßig alles */
+    position: relative; /* erlaubt absolute Positionierung */
+
+    .counter {
+      position: absolute;
+      left: 10px;
+      font-weight: bold;
+    }
+
+    .button-container {
+      display: flex;
+      gap: 1rem;
+
+      .knopp {
+        align-items: center;
+        background: var(--button_background);
+        color: var(--button_color);
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+      .knopp:hover {
+        background: var(--button_background_hoover);
+      }
+    }
   }
 }
