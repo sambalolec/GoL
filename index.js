@@ -32,6 +32,7 @@ const colorCycling = true;
 // Speed
 const intervall = 50;
 
+//
 const Game = {
   zeilen: 45,
   spalten: 110,
@@ -103,30 +104,7 @@ const Game = {
   },
 };
 
-/************************************************* Setup ******************************** */
-
-Game.new();
-
-// R-pentomino bauen, für Testing
-function r_Pentomino() {
-  const x0 = Game.spalten >>> 1;
-  const y0 = Game.zeilen >>> 1;
-  Game.matrix[y0 - 1][x0 + 1] = Game.defaultColor;
-  Game.matrix[y0 - 2][x0 + 1] = Game.defaultColor;
-  Game.matrix[y0 - 2][x0 + 0] = Game.defaultColor;
-  Game.matrix[y0 - 3][x0 + 1] = Game.defaultColor;
-  Game.matrix[y0 - 3][x0 + 2] = Game.defaultColor;
-}
-r_Pentomino();
-
-/********************************************************* Output *********************************************/
-
-function start() {
-  Game.matrix = Game.transformMatrix();
-  viewport_container(Game.matrix);
-  const counter = document.getElementById("counter");
-  counter.textContent = "Runden: " + Game.rounds;
-}
+/********************************************************* UI *********************************************/
 
 // Viewport für die Seite bauen
 function viewport_container(matrix) {
@@ -143,6 +121,9 @@ function viewport_container(matrix) {
       cell.style.backgroundColor = palette[value];
       cell.style.width = width;
       cell.style.height = height;
+
+      cell.dataset.x = x;
+      cell.dataset.y = y;
       // Zellen einfügen
       row.appendChild(cell);
     });
@@ -157,43 +138,110 @@ function viewport_container(matrix) {
   container.appendChild(table);
 }
 
-// Starten und Stoppen
-let loop = null;
-let started = false;
-viewport_container(Game.matrix); // Erstes Bild
+// Symboleditor
+function viewport_container_editor(matrix) {
+  const container = document.getElementById("viewbox-container");
 
-// Controlbutton
-document.getElementById("control").addEventListener("click", () => {
-  const butt = document.getElementById("control");
-  if (!started) {
-    loop = setInterval(start, intervall);
-    started = true;
+  const mouseDraw = (event) => {
+    const cell = event.target;
+    if (cell.tagName !== "TD") return;
 
-    butt.textContent = "Stop";
-  } else {
-    clearInterval(loop);
-    started = false;
-    butt.textContent = "Start";
-  }
-});
+    const x = parseInt(cell.dataset.x);
+    const y = parseInt(cell.dataset.y);
 
-// Resetbutton
-document.getElementById("Reset").addEventListener("click", () => {
-  Game.new();
-  r_Pentomino();
+    matrix[y][x] = (matrix[y][x] + 1) % palette.length;
+    cell.style.backgroundColor = palette[matrix[y][x]];
+  };
+
+  let mouseDown = false;
+  document.body.addEventListener("mousedown", () => (mouseDown = true));
+  document.body.addEventListener("mouseup", () => (mouseDown = false));
+
+  container.addEventListener("mousedown", mouseDraw);
+  container.addEventListener("mouseover", (event) => {
+    if (mouseDown === true) mouseDraw(event);
+  });
+}
+
+/************************************************* Setup and run ******************************** */
+
+// R-pentomino bauen
+function r_Pentomino() {
+  const x0 = Game.spalten >>> 1;
+  const y0 = Game.zeilen >>> 1;
+  Game.matrix[y0 - 1][x0 + 1] = Game.defaultColor;
+  Game.matrix[y0 - 2][x0 + 1] = Game.defaultColor;
+  Game.matrix[y0 - 2][x0 + 0] = Game.defaultColor;
+  Game.matrix[y0 - 3][x0 + 1] = Game.defaultColor;
+  Game.matrix[y0 - 3][x0 + 2] = Game.defaultColor;
+}
+
+// Mainloop
+function run() {
+  Game.matrix = Game.transformMatrix();
   viewport_container(Game.matrix);
   const counter = document.getElementById("counter");
   counter.textContent = "Runden: " + Game.rounds;
+}
+
+Game.new();
+r_Pentomino();
+let loop = null;
+let started = false;
+viewport_container(Game.matrix); // Erstes Bild zeigen (r-Pentomino)
+
+/*********************************************** Buttons *******************************/
+
+// Start/Stop
+document.getElementById("control").addEventListener("click", () => {
+  const butt = document.getElementById("control");
+  if (!started) {
+    loop = setInterval(run, intervall); // <============ Mainloop setzen
+    started = true;
+    butt.textContent = "Stop";
+  } else {
+    started = false;
+    clearInterval(loop);
+
+    if (Game.rounds === 0) butt.textContent = "Start";
+    else butt.textContent = "Continue";
+  }
+});
+
+// Reset to defaults
+document.getElementById("Reset").addEventListener("click", () => {
+  clearInterval(loop);
+  started = false;
+  Game.new();
+  const counter = document.getElementById("counter");
+  counter.textContent = "Runden: " + Game.rounds;
+  const butt = document.getElementById("control");
+  butt.textContent = "Start";
+  r_Pentomino();
+  viewport_container(Game.matrix);
+});
+
+// Editbutton
+document.getElementById("Edit").addEventListener("click", () => {
+  clearInterval(loop);
+  started = false;
+  Game.new();
+  const counter = document.getElementById("counter");
+  counter.textContent = "Runden: " + Game.rounds;
+  const butt = document.getElementById("control");
+  butt.textContent = "Start";
+  viewport_container(Game.matrix);
+  viewport_container_editor(Game.matrix);
 });
 
 /*******************************************************************************
 
-Spiel läuft soweit, scheinbar fehlerfrei.
 Rundenzähler ist drin.
-Reset-Button jetzt mit Funktion
+Reset-Button jetzt mit Funktion.
+Editor funktioniert, aber ist sicher noch ausbaufähig.
 
 Fehlt noch:
-- Editor
+- Random-Fill
 - Rulemanagement
 - Was wo man draufklickt und dann was zu lesen kriegt
 - Makeup
