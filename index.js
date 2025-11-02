@@ -2,6 +2,7 @@
 // Farben
 const palette = [
   "#000000", //Grundfarbe! Nicht ändern.
+  "#00ffff",
   "#800000",
   "#008000",
   "#808000",
@@ -15,7 +16,6 @@ const palette = [
   "#ffff00",
   "#0000ff",
   "#ff00ff",
-  "#00ffff",
   "#ffffff",
 ];
 
@@ -25,20 +25,19 @@ const palette = [
 const width = "12px";
 const height = width;
 
-// Farben
-// const defaultColor = 11; // Defaultfarbe für Zellen
+// Farbwechsel
 const colorCycling = true;
 
 // Speed
-const intervall = 50;
+const intervall = 1;
 
 //
 const Game = {
   zeilen: 45,
   spalten: 110,
-  defaultColor: 11,
+  defaultColor: 10, // Defaultfarbe für die Zellen
   rounds: 0,
-  matrix: null,
+  matrix: [],
 
   new() {
     this.matrix = Array.from({ length: this.zeilen }, () =>
@@ -46,61 +45,58 @@ const Game = {
     );
     this.rounds = 0;
   },
+
   transformMatrix() {
-    // Wrapper horizontal
-    const x_ = (val) => {
-      let out = val;
-      if (val >= this.spalten) out = 0;
-      if (val < 0) out = this.spalten - 1;
-      return out;
-    };
-    // Wrapper vertikal
-    const y_ = (val) => {
-      let out = val;
-      if (val >= this.zeilen) out = 0;
-      if (val < 0) out = this.zeilen - 1;
-      return out;
-    };
-    // Farbpalette durchgehen
-    const cycleCol = (col) => {
-      if (col < palette.length - 1) return col + 1;
-      else return 1;
-    };
-
-    let m = Array(this.zeilen)
+    const zeilen = this.zeilen;
+    const spalten = this.spalten;
+    const defaultColor = this.defaultColor;
+    const colors = palette.length - 1;
+    const old_matrix = this.matrix;
+    const new_matrix = Array(zeilen)
       .fill(0)
-      .map(() => Array(this.spalten).fill(0));
+      .map(() => Array(spalten).fill(0));
 
-    for (let y = 0; y < this.zeilen; y++) {
-      for (let x = 0; x < this.spalten; x++) {
-        let neighbours = 0;
+    // Lebende Nachbarn zählen
+    const count = (y, x) => {
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        const yy = (y + dy + zeilen) % zeilen;
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dy === 0 && dx === 0) continue;
+          const xx = (x + dx + spalten) % spalten;
+          if (old_matrix[yy][xx] !== 0) n++;
+        }
+      }
+      return n;
+    };
 
-        // Nachbarn an den Flächen zählen
-        if (this.matrix[y_(y + 1)][x_(x)] !== 0) neighbours += 1; //Oben
-        if (this.matrix[y_(y - 1)][x_(x)] !== 0) neighbours += 1; //Unten
-        if (this.matrix[y_(y)][x_(x + 1)] !== 0) neighbours += 1; //Rechts
-        if (this.matrix[y_(y)][x_(x - 1)] !== 0) neighbours += 1; //Links
+    // Farbpalette durchgehen (Entwurf)
+    const cycleCol = (col) => {
+      if (col < colors) return ++col;
+      return 1;
+    };
 
-        // Nachbarn an den Ecken zählen
-        if (this.matrix[y_(y + 1)][x_(x + 1)] !== 0) neighbours += 1; //Oben Rechts
-        if (this.matrix[y_(y + 1)][x_(x - 1)] !== 0) neighbours += 1; //Oben Links
-        if (this.matrix[y_(y - 1)][x_(x + 1)] !== 0) neighbours += 1; //Unten Rechts
-        if (this.matrix[y_(y - 1)][x_(x - 1)] !== 0) neighbours += 1; //Unten Links
+    // Regeln auf alle Zellen anwenden
+    for (let y = 0; y < zeilen; y++) {
+      for (let x = 0; x < spalten; x++) {
+        const neighbours = count(y, x);
 
-        // Standardregeln anwenden
-        if (this.matrix[y][x] === 0) {
+        // Für´s Erste nur klassische Regeln
+        if (old_matrix[y][x] === 0) {
           //Zelle tot
-          if (neighbours === 3) m[y][x] = 10;
+          if (neighbours === 3) new_matrix[y][x] = defaultColor; // Bei exakt 3 lebenden Nachbarn befruchten
         } else {
           // Zelle lebt
           if (neighbours === 2 || neighbours === 3)
-            if (colorCycling === true) m[y][x] = cycleCol(this.matrix[y][x]);
-            else m[y][x] = 10;
+            if (colorCycling === true)
+              // Darf weiterleben
+              new_matrix[y][x] = cycleCol(old_matrix[y][x]);
+            else new_matrix[y][x] = defaultColor;
         }
       }
     }
-    this.rounds += 1;
-    return m;
+    this.rounds++;
+    this.matrix = new_matrix;
   },
 };
 
@@ -178,10 +174,10 @@ function r_Pentomino() {
 
 // Mainloop
 function run() {
-  Game.matrix = Game.transformMatrix();
+  Game.transformMatrix();
   viewport_container(Game.matrix);
   const counter = document.getElementById("counter");
-  counter.textContent = "Runden: " + Game.rounds;
+  counter.textContent = "Rounds: " + Game.rounds;
 }
 
 Game.new();
@@ -214,7 +210,7 @@ document.getElementById("Reset").addEventListener("click", () => {
   started = false;
   Game.new();
   const counter = document.getElementById("counter");
-  counter.textContent = "Runden: " + Game.rounds;
+  counter.textContent = "Rounds: " + Game.rounds;
   const butt = document.getElementById("control");
   butt.textContent = "Start";
   r_Pentomino();
@@ -225,25 +221,97 @@ document.getElementById("Reset").addEventListener("click", () => {
 document.getElementById("Edit").addEventListener("click", () => {
   clearInterval(loop);
   started = false;
-  Game.new();
   const counter = document.getElementById("counter");
-  counter.textContent = "Runden: " + Game.rounds;
+  counter.textContent = "Rounds: " + Game.rounds;
   const butt = document.getElementById("control");
-  butt.textContent = "Start";
+  butt.textContent = "Continue";
   viewport_container(Game.matrix);
   viewport_container_editor(Game.matrix);
 });
 
 /*******************************************************************************
 
-Rundenzähler ist drin.
-Reset-Button jetzt mit Funktion.
 Editor funktioniert, aber ist sicher noch ausbaufähig.
+Kleinigkeiten wurden geändert.
 
 Fehlt noch:
+- Funktion transformMatrix ineffizient, muss knackiger werden
 - Random-Fill
 - Rulemanagement
 - Was wo man draufklickt und dann was zu lesen kriegt
 - Makeup
 
 ********************************************************************************/
+
+/**************************************** Spielplatz *************************** */
+
+const spalten = 10;
+const zeilen = 10;
+
+class Cell {
+  neighbours = [];
+  value = 0;
+  calc() {
+    let count = 0;
+    neighbours.forEach = (neighbour) => {
+      if (neighbour.value > 0) count += 1;
+    };
+    return count;
+  }
+}
+
+class Matrix {
+  matrix = [];
+
+  constructor() {
+    // Wrapper horizontal
+    const x_ = (val) => {
+      let out = val;
+      if (val >= spalten) out = 0;
+      if (val < 0) out = spalten - 1;
+      return out;
+    };
+
+    // Wrapper vertikal
+    const y_ = (val) => {
+      let out = val;
+      if (val >= zeilen) out = 0;
+      if (val < 0) out = zeilen - 1;
+      return out;
+    };
+
+    this.matrix = Array(zeilen)
+      .fill(0)
+      .map(() => Array(spalten).fill((this.cell = new Cell())));
+
+    for (let y = 0; y < zeilen; y++) {
+      for (let x = 0; x < spalten; x++) {
+        let i = 0;
+
+        // Nachbarn an den Flächen verlinken
+        this.matrix[y][x].neighbours[i] = this.matrix[y_(y + 1)][x]; //Oben
+        i += 1;
+        this.matrix[y][x].neighbours[i] = this.matrix[y_(y - 1)][x]; //Unten
+        i += 1;
+        this.matrix[y][x].neighbours[i] = this.matrix[y][x_(x + 1)]; //Rechts
+        i += 1;
+        this.matrix[y][x].neighbours[i] = this.matrix[y][x_(x - 1)]; //Links
+        i += 1;
+
+        // Nachbarn an den Ecken verlinken
+        this.matrix[y][x].neighbours[i] = this.matrix[y_(y + 1)][x_(x + 1)]; //Oben Rechts
+        i += 1;
+        this.matrix[y][x].neighbours[i] = this.matrix[y_(y + 1)][x_(x - 1)]; //Oben Links
+        i += 1;
+        this.matrix[y][x].neighbours[i] = this.matrix[y_(y - 1)][x_(x + 1)]; //Unten Rechts
+        i += 1;
+        this.matrix[y][x].neighbours[i] = this.matrix[y_(y - 1)][x_(x - 1)]; //Unten Links
+      }
+    }
+    console.log("this.matrixX= ", this.matrix);
+  }
+}
+
+const XXX = new Matrix();
+
+console.log("XXX= ", XXX);
