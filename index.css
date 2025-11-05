@@ -16,13 +16,13 @@ body {
   font-family: sans-serif;
   text-align: center;
 
-  .navi {
+  #navi {
     display: flex;
     align-items: center;
     justify-content: center; /* zentriert standardmäßig alles */
     position: relative; /* erlaubt absolute Positionierung */
 
-    .counter {
+    #counter {
       position: absolute;
       left: 16px;
       /*font-weight: bold; */

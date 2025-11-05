@@ -20,19 +20,28 @@ const PALETTE = [
 ];
 
 // Spielfeldgröße
-const ZEILEN = 90;
-const SPALTEN = 90;
-const CELL_WIDTH = "5px";
+const ZEILEN = 129;
+const SPALTEN = 128;
+const CELL_WIDTH = "3px";
 const CELL_HEIGHT = CELL_WIDTH;
 
 /* ############################################## Utility ######################################### */
 
 // Berechnet Index für flaches Array aus 2D-Koordinaten
 function getIndex(x, y) {
-  return y * SPALTEN + x;
+  // return y * SPALTEN + x;
+  return (y << 7) + x; // nur für Breite 128!
 }
 
 /* ############################################## Main ######################################### */
+
+function randomArray() {
+  const m = Game.matrix;
+  const l = Game.matrix.length;
+  for (let i = 0; i < l; i++) {
+    m[i] = Math.random() * 2;
+  }
+}
 
 // "R-Pentomino" etwa mittig setzen (Startmuster)
 function r_Pentomino() {
@@ -56,7 +65,6 @@ const Game = {
   new() {
     this.matrix = new Uint8Array(this.zeilen * this.spalten);
     this.rounds = 0;
-    r_Pentomino();
   },
 
   // Komplettes Feld neu rechnen
@@ -82,7 +90,7 @@ const Game = {
     };
 
     // Farbpalette durchgehen und die 0 auslassen
-    const cycleCol = (col) => (col < colors ? col + 1 : 1);
+    const cycleCol = (col) => (col < colors ? ++col : 1);
 
     // Regeln auf alle Zellen anwenden (Originalregeln von Conway)
     for (let y = 0; y < zeilen; y++) {
@@ -107,39 +115,29 @@ const Game = {
   },
 };
 
-/* ############################################## Setup and run ######################################### */
-
-const Simulation = {
-  interval: 0,
-  loopPtr: null,
-  inProgress: false,
-
-  start() {
-    this.loopPtr = setInterval(this.loop, this.interval);
-    this.inProgress = true;
-  },
-
-  stop() {
-    clearInterval(this.loopPtr);
-    this.inProgress = false;
-  },
-
-  loop() {
-    Game.transformMatrix();
-    viewbox_container(Game.matrix);
-    counter.count();
-  },
-
-  reset() {
-    this.stop();
-    Game.new();
-    viewbox_container(Game.matrix);
-  },
-};
-
-Simulation.reset();
-
 /* ###################################################### UI ################################################## */
+
+// Rundenzähler
+class Counter {
+  value = 0;
+  id = "counter"; //
+  text = "Rounds: ";
+
+  constructor() {
+    const counter = document.getElementById(this.id);
+    counter.textContent = this.text + this.value;
+  }
+  inc() {
+    const counter = document.getElementById(this.id);
+    counter.textContent = this.text + this.value++;
+  }
+  set(x = 0) {
+    this.value = x;
+    const counter = document.getElementById(this.id);
+    counter.textContent = this.text + this.value;
+  }
+}
+const counter = new Counter();
 
 // Tabelle bauen
 function viewbox_container(matrix) {
@@ -193,27 +191,47 @@ function viewbox_container_editor(matrix) {
   });
 }
 
-// Rundenzähler
-class Counter {
-  value = 0;
-  id = "counter"; //
-  text = "Rounds: ";
+/* ############################################## Setup and run ######################################### */
 
-  constructor() {
-    const counter = document.getElementById(this.id);
-    counter.textContent = this.text + this.value;
-  }
-  count() {
-    const counter = document.getElementById(this.id);
-    counter.textContent = this.text + this.value++;
-  }
-  set(x = 0) {
-    this.value = x;
-    const counter = document.getElementById(this.id);
-    counter.textContent = this.text + this.value;
-  }
-}
-const counter = new Counter();
+const Simulation = {
+  interval: 0,
+  loopPtr: null,
+  inProgress: false,
+
+  loop() {
+    Game.transformMatrix();
+    viewbox_container(Game.matrix);
+    counter.inc();
+  },
+
+  start() {
+    this.loopPtr = setInterval(this.loop, this.interval);
+    this.inProgress = true;
+  },
+
+  stop() {
+    clearInterval(this.loopPtr);
+    this.inProgress = false;
+  },
+
+  reset(mode = "pentomino") {
+    this.stop();
+    Game.new();
+    switch (mode) {
+      case "random":
+        randomArray();
+        break;
+      case "pentomino":
+        r_Pentomino();
+        break;
+      default:
+        break;
+    }
+    viewbox_container(Game.matrix);
+  },
+};
+
+Simulation.reset();
 
 /* ############################################## Buttons ######################################### */
 
@@ -232,7 +250,7 @@ document.getElementById("control").addEventListener("click", () => {
 
 // Reset
 document.getElementById("Reset").addEventListener("click", () => {
-  Simulation.reset();
+  Simulation.reset("pentomino");
   counter.set();
   const butt = document.getElementById("control");
   butt.textContent = "Start";
@@ -245,6 +263,14 @@ document.getElementById("Edit").addEventListener("click", () => {
   butt.textContent = "Continue";
   viewbox_container(Game.matrix);
   viewbox_container_editor(Game.matrix);
+});
+
+// Random
+document.getElementById("Random").addEventListener("click", () => {
+  Simulation.reset("random");
+  counter.set();
+  const butt = document.getElementById("control");
+  butt.textContent = "Start";
 });
 
 /* **************************************************************************************
