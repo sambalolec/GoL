@@ -20,7 +20,7 @@ const PALETTE = [
 ];
 
 // Spielfeldgröße
-const ZEILEN = 129;
+const ZEILEN = 128;
 const SPALTEN = 128;
 const CELL_WIDTH = "3px";
 const CELL_HEIGHT = CELL_WIDTH;
@@ -29,8 +29,7 @@ const CELL_HEIGHT = CELL_WIDTH;
 
 // Berechnet Index für flaches Array aus 2D-Koordinaten
 function getIndex(x, y) {
-  // return y * SPALTEN + x;
-  return (y << 7) + x; // nur für Breite 128!
+  return y * SPALTEN + x;
 }
 
 /* ############################################## Main ######################################### */
@@ -54,17 +53,45 @@ function r_Pentomino() {
   m[getIndex(x0 + 1, y0 - 3)] = 1;
   m[getIndex(x0 + 2, y0 - 3)] = 1;
 }
-
 const Game = {
   zeilen: ZEILEN,
   spalten: SPALTEN,
   rounds: 0,
   matrix: null,
 
-  // Game initialisieren
+  rowAbove: null,
+  rowBelow: null,
+  colLeft: null,
+  colRight: null,
+
   new() {
-    this.matrix = new Uint8Array(this.zeilen * this.spalten);
+    const zeilen = this.zeilen;
+    const spalten = this.spalten;
+
+    this.matrix = new Uint8Array(zeilen * spalten);
     this.rounds = 0;
+
+    // Zeilenindizes vorberechnen
+    const rowAbove = new Int32Array(zeilen);
+    const rowBelow = new Int32Array(zeilen);
+    for (let y = 0; y < zeilen; y++) {
+      rowAbove[y] = y === 0 ? zeilen - 1 : y - 1;
+      rowBelow[y] = y === zeilen - 1 ? 0 : y + 1;
+      rowAbove[y] *= spalten;
+      rowBelow[y] *= spalten;
+    }
+    this.rowAbove = rowAbove;
+    this.rowBelow = rowBelow;
+
+    // Spaltenindizes vorberechnen
+    const colLeft = new Int32Array(spalten);
+    const colRight = new Int32Array(spalten);
+    for (let x = 0; x < spalten; x++) {
+      colLeft[x] = x === 0 ? spalten - 1 : x - 1;
+      colRight[x] = x === spalten - 1 ? 0 : x + 1;
+    }
+    this.colLeft = colLeft;
+    this.colRight = colRight;
   },
 
   // Komplettes Feld neu rechnen
@@ -73,32 +100,37 @@ const Game = {
     const spalten = this.spalten;
     const colors = PALETTE.length - 1;
     const old_matrix = this.matrix;
-    const new_matrix = new Uint8Array(zeilen * spalten);
-
-    // Die lebenden Nachbarn zählen
-    const count = (y, x) => {
-      let n = 0;
-      for (let dy = -1; dy <= 1; dy++) {
-        const yy = (y + dy + zeilen) % zeilen;
-        for (let dx = -1; dx <= 1; dx++) {
-          if (dy === 0 && dx === 0) continue; // sich selbst nicht mitzählen
-          const xx = (x + dx + spalten) % spalten;
-          if (old_matrix[getIndex(xx, yy)] !== 0) n++;
-        }
-      }
-      return n;
-    };
-
-    // Farbpalette durchgehen und die 0 auslassen
+    const new_matrix = new Uint8Array(old_matrix.length);
+    const rowAbove = this.rowAbove;
+    const rowBelow = this.rowBelow;
+    const colLeft = this.colLeft;
+    const colRight = this.colRight;
     const cycleCol = (col) => (col < colors ? ++col : 1);
 
-    // Regeln auf alle Zellen anwenden (Originalregeln von Conway)
+    // Hauptlogik
+    let yOffset = 0;
     for (let y = 0; y < zeilen; y++) {
-      for (let x = 0; x < spalten; x++) {
-        const idx = getIndex(x, y);
-        const neighbours = count(y, x);
-        const val = old_matrix[idx];
+      const yUpOffset = rowAbove[y];
+      const yDnOffset = rowBelow[y];
 
+      for (let x = 0; x < spalten; x++) {
+        const xL = colLeft[x];
+        const xR = colRight[x];
+
+        // Nur die Lebenden zählen
+        const neighbours =
+          (old_matrix[yUpOffset + xL] ? 1 : 0) +
+          (old_matrix[yUpOffset + x] ? 1 : 0) +
+          (old_matrix[yUpOffset + xR] ? 1 : 0) +
+          (old_matrix[yOffset + xL] ? 1 : 0) +
+          (old_matrix[yOffset + xR] ? 1 : 0) +
+          (old_matrix[yDnOffset + xL] ? 1 : 0) +
+          (old_matrix[yDnOffset + x] ? 1 : 0) +
+          (old_matrix[yDnOffset + xR] ? 1 : 0);
+
+        // Conway´s Regeln anwenden
+        const idx = yOffset + x;
+        const val = old_matrix[idx];
         if (val === 0) {
           // Tote Zelle
           if (neighbours === 3) new_matrix[idx] = 1;
@@ -108,6 +140,7 @@ const Game = {
             new_matrix[idx] = cycleCol(val);
         }
       }
+      yOffset += spalten;
     }
 
     this.rounds++;
@@ -276,11 +309,10 @@ document.getElementById("Random").addEventListener("click", () => {
 /* **************************************************************************************
 
 *  An Performance geschraubt:
--- Game.transformMatrix - Vollständige Umstellung auf eindimensionales typisiertes Array.
--- Supportfunktion "getIndex(x, y)" als Interface für dir alten Funktionen
+-- Game.transformMatrix - Keine Multiplikationen und Modulos mehr drin; Funktion getIndex() auch nicht mehr.
 
 *  Was fehlt:
--- Funktion RandomArray
+-- Webseite: Canvas statt Tabelle
 -- Mehr Optionen (Spielfeldgröße und Regeln ändern, Grid an/aus, Farben etc.)
 -- Besserer Editor (Zoom in/out, predefined Patterns)
 
