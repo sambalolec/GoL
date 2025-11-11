@@ -20,17 +20,14 @@ const PALETTE = [
 ];
 
 // Spielfeldgröße
-const ZEILEN = 128;
-const SPALTEN = 128;
-const CELL_WIDTH = "3px";
-const CELL_HEIGHT = CELL_WIDTH;
+const ZEILEN = 173;
+const SPALTEN = 409;
+// const CELL_WIDTH = "3px";
+// const CELL_HEIGHT = CELL_WIDTH;
 
-/* ############################################## Utility ######################################### */
-
-// Berechnet Index für flaches Array aus 2D-Koordinaten
-function getIndex(x, y) {
-  return y * SPALTEN + x;
-}
+const CELL_SIZE = 3;
+const BREITE = (CELL_SIZE + 1) * SPALTEN;
+const HOEHE = (CELL_SIZE + 1) * ZEILEN;
 
 /* ############################################## Main ######################################### */
 
@@ -47,6 +44,8 @@ function r_Pentomino() {
   const x0 = SPALTEN >>> 1;
   const y0 = ZEILEN >>> 1;
   const m = Game.matrix;
+  const getIndex = (x, y) => y * SPALTEN + x;
+
   m[getIndex(x0 + 1, y0 - 1)] = 1;
   m[getIndex(x0 + 1, y0 - 2)] = 1;
   m[getIndex(x0 + 0, y0 - 2)] = 1;
@@ -59,6 +58,7 @@ const Game = {
   rounds: 0,
   matrix: null,
 
+  // Lookup-Tables für die Nachbarschaften
   rowAbove: null,
   rowBelow: null,
   colLeft: null,
@@ -105,7 +105,7 @@ const Game = {
     const rowBelow = this.rowBelow;
     const colLeft = this.colLeft;
     const colRight = this.colRight;
-    const cycleCol = (col) => (col < colors ? ++col : 1);
+    const colorCycling = (col) => (col < colors ? ++col : 1);
 
     // Hauptlogik
     let yOffset = 0;
@@ -119,25 +119,25 @@ const Game = {
 
         // Nur die Lebenden zählen
         const neighbours =
-          (old_matrix[yUpOffset + xL] ? 1 : 0) +
-          (old_matrix[yUpOffset + x] ? 1 : 0) +
-          (old_matrix[yUpOffset + xR] ? 1 : 0) +
-          (old_matrix[yOffset + xL] ? 1 : 0) +
-          (old_matrix[yOffset + xR] ? 1 : 0) +
-          (old_matrix[yDnOffset + xL] ? 1 : 0) +
-          (old_matrix[yDnOffset + x] ? 1 : 0) +
-          (old_matrix[yDnOffset + xR] ? 1 : 0);
+          (old_matrix[yUpOffset + xL] ? 1 : 0) + // Links oben
+          (old_matrix[yUpOffset + x] ? 1 : 0) + // Oben
+          (old_matrix[yUpOffset + xR] ? 1 : 0) + // Rechts oben
+          (old_matrix[yOffset + xL] ? 1 : 0) + // Links
+          (old_matrix[yOffset + xR] ? 1 : 0) + // Rechts
+          (old_matrix[yDnOffset + xL] ? 1 : 0) + // Links unten
+          (old_matrix[yDnOffset + x] ? 1 : 0) + // Darunter
+          (old_matrix[yDnOffset + xR] ? 1 : 0); // Rechts unten
 
         // Conway´s Regeln anwenden
         const idx = yOffset + x;
         const val = old_matrix[idx];
         if (val === 0) {
           // Tote Zelle
-          if (neighbours === 3) new_matrix[idx] = 1;
+          if (neighbours === 3) new_matrix[idx]++;
         } else {
           // Lebende Zelle
           if (neighbours === 2 || neighbours === 3)
-            new_matrix[idx] = cycleCol(val);
+            new_matrix[idx] = colorCycling(val);
         }
       }
       yOffset += spalten;
@@ -173,6 +173,7 @@ class Counter {
 const counter = new Counter();
 
 // Tabelle bauen
+/*
 function viewbox_container(matrix) {
   const container = document.getElementById("viewbox-container");
   container.innerHTML = ""; // Container leeren
@@ -224,6 +225,34 @@ function viewbox_container_editor(matrix) {
   });
 }
 
+*/
+
+function drawCourt(matrix) {
+  const canvas = document.getElementById("court");
+
+  canvas.width = BREITE;
+  canvas.height = HOEHE;
+
+  canvas.style.border = "1px dashed gray";
+  canvas.style.display = "block";
+  canvas.style.margin = "1.5rem auto";
+
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, BREITE, HOEHE);
+
+  const cellSize = CELL_SIZE + 1;
+  let idx = 0;
+  for (let y = 0; y < HOEHE; y += cellSize) {
+    for (let x = 0; x < BREITE; x += cellSize) {
+      const value = matrix[idx];
+      ctx.fillStyle = PALETTE[value];
+      ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+      idx++;
+    }
+  }
+}
+
 /* ############################################## Setup and run ######################################### */
 
 const Simulation = {
@@ -233,7 +262,7 @@ const Simulation = {
 
   loop() {
     Game.transformMatrix();
-    viewbox_container(Game.matrix);
+    drawCourt(Game.matrix);
     counter.inc();
   },
 
@@ -260,11 +289,18 @@ const Simulation = {
       default:
         break;
     }
-    viewbox_container(Game.matrix);
+    drawCourt(Game.matrix);
   },
 };
 
 Simulation.reset();
+
+// console.time("timer");
+// for (let i = 0; i < 100000; i++) {
+//   Game.transformMatrix();
+//   // drawCourt(Game.matrix);
+// }
+// console.timeEnd("timer");
 
 /* ############################################## Buttons ######################################### */
 
@@ -294,8 +330,8 @@ document.getElementById("Edit").addEventListener("click", () => {
   Simulation.stop();
   const butt = document.getElementById("control");
   butt.textContent = "Continue";
-  viewbox_container(Game.matrix);
-  viewbox_container_editor(Game.matrix);
+  drawCourt(Game.matrix);
+  // viewbox_container_editor(Game.matrix);
 });
 
 // Random
@@ -308,12 +344,10 @@ document.getElementById("Random").addEventListener("click", () => {
 
 /* **************************************************************************************
 
-*  An Performance geschraubt:
--- Game.transformMatrix - Keine Multiplikationen und Modulos mehr drin; Funktion getIndex() auch nicht mehr.
+*  Canvas statt Tabelle
 
 *  Was fehlt:
--- Webseite: Canvas statt Tabelle
 -- Mehr Optionen (Spielfeldgröße und Regeln ändern, Grid an/aus, Farben etc.)
--- Besserer Editor (Zoom in/out, predefined Patterns)
+-- Editor (Zoom in/out, predefined Patterns)
 
 */
