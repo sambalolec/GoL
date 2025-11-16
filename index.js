@@ -1,31 +1,29 @@
 /* ############################################## Globals ######################################### */
 // Farben
 const PALETTE = [
-  "#000000", // Index === 0 <=> tote Zelle; Möglichst nicht ändern.
-  "#ff0000",
-  "#00ff00",
-  "#ffff00",
-  "#0000ff",
-  "#ff00ff",
-  "#ffffff",
-  "#00ffff",
-  "#800000",
-  "#008000",
-  "#808000",
-  "#000080",
-  "#800080",
-  "#008080",
-  "#c0c0c0",
-  "#808080",
+  [0, 0, 0], // "#000000"
+  [255, 0, 0], // "#ff0000"
+  [0, 255, 0], // "#00ff00"
+  [255, 255, 0], // "#ffff00"
+  [0, 0, 255], // "#0000ff"
+  [255, 0, 255], // "#ff00ff"
+  [255, 255, 255], // "#ffffff"
+  [0, 255, 255], // "#00ffff"
+  [128, 0, 0], // "#800000"
+  [0, 128, 0], // "#008000"
+  [128, 128, 0], // "#808000"
+  [0, 0, 128], // "#000080"
+  [128, 0, 128], // "#800080"
+  [0, 128, 128], // "#008080"
+  [192, 192, 192], // "#c0c0c0"
+  [128, 128, 128], // "#808080"
 ];
 
 // Spielfeldgröße
-const ZEILEN = 173;
-const SPALTEN = 409;
-// const CELL_WIDTH = "3px";
-// const CELL_HEIGHT = CELL_WIDTH;
+const ZEILEN = 211;
+const SPALTEN = 523;
+const CELL_SIZE = 2;
 
-const CELL_SIZE = 3;
 const BREITE = (CELL_SIZE + 1) * SPALTEN;
 const HOEHE = (CELL_SIZE + 1) * ZEILEN;
 
@@ -172,85 +170,38 @@ class Counter {
 }
 const counter = new Counter();
 
-// Tabelle bauen
-/*
-function viewbox_container(matrix) {
-  const container = document.getElementById("viewbox-container");
-  container.innerHTML = ""; // Container leeren
-  const table = document.createElement("table");
-
-  for (let y = 0; y < ZEILEN; y++) {
-    const row = document.createElement("tr");
-    for (let x = 0; x < SPALTEN; x++) {
-      const idx = getIndex(x, y);
-      const value = matrix[idx];
-      const cell = document.createElement("td");
-      cell.style.backgroundColor = PALETTE[value];
-      cell.style.width = CELL_WIDTH;
-      cell.style.height = CELL_HEIGHT;
-      cell.dataset.x = x;
-      cell.dataset.y = y;
-      row.appendChild(cell);
-    }
-    table.appendChild(row);
-    // table.style.borderCollapse = "collapse";
-    table.style.borderStyle = "dashed";
-    table.style.borderWidth = "1px";
-    table.style.margin = "1.5rem auto";
-  }
-  container.appendChild(table);
-}
-
-// Editor für Tabelle
-function viewbox_container_editor(matrix) {
-  const container = document.getElementById("viewbox-container");
-
-  const mouseDraw = (event) => {
-    const cell = event.target;
-    if (cell.tagName !== "TD") return;
-    const x = parseInt(cell.dataset.x);
-    const y = parseInt(cell.dataset.y);
-    const idx = getIndex(x, y);
-
-    matrix[idx] = (matrix[idx] + 1) % PALETTE.length;
-    cell.style.backgroundColor = PALETTE[matrix[idx]];
-  };
-
-  let mouseDown = false;
-  document.body.addEventListener("mousedown", () => (mouseDown = true));
-  document.body.addEventListener("mouseup", () => (mouseDown = false));
-  container.addEventListener("mousedown", mouseDraw);
-  container.addEventListener("mouseover", (event) => {
-    if (mouseDown) mouseDraw(event);
-  });
-}
-
-*/
-
+// Output rendern
 function drawCourt(matrix) {
   const canvas = document.getElementById("court");
-
   canvas.width = BREITE;
   canvas.height = HOEHE;
-
   canvas.style.border = "1px dashed gray";
-  canvas.style.display = "block";
   canvas.style.margin = "1.5rem auto";
 
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "black";
-  ctx.fillRect(0, 0, BREITE, HOEHE);
+  const img = ctx.createImageData(BREITE, HOEHE);
+  const data = img.data;
 
   const cellSize = CELL_SIZE + 1;
   let idx = 0;
   for (let y = 0; y < HOEHE; y += cellSize) {
     for (let x = 0; x < BREITE; x += cellSize) {
-      const value = matrix[idx];
-      ctx.fillStyle = PALETTE[value];
-      ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
-      idx++;
+      const [r, g, b] = PALETTE[matrix[idx++]];
+
+      // Block setzen (CELL_SIZE × CELL_SIZE)
+      for (let dy = 0; dy < CELL_SIZE; dy++) {
+        const base = (y + dy) * BREITE + x;
+        for (let dx = 0; dx < CELL_SIZE; dx++) {
+          const i = (base + dx) << 2;
+          data[i] = r;
+          data[i + 1] = g;
+          data[i + 2] = b;
+          data[i + 3] = 255;
+        }
+      }
     }
   }
+  ctx.putImageData(img, 0, 0);
 }
 
 /* ############################################## Setup and run ######################################### */
@@ -344,7 +295,7 @@ document.getElementById("Random").addEventListener("click", () => {
 
 /* **************************************************************************************
 
-*  Canvas statt Tabelle
+*  Canvas deutlich beschleunigt, create- und putImageData statt Quadrate zeichnen
 
 *  Was fehlt:
 -- Mehr Optionen (Spielfeldgröße und Regeln ändern, Grid an/aus, Farben etc.)
