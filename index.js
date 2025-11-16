@@ -22,10 +22,6 @@ const PALETTE = [
 // Spielfeldgröße
 const ZEILEN = 211;
 const SPALTEN = 523;
-const CELL_SIZE = 2;
-
-const BREITE = (CELL_SIZE + 1) * SPALTEN;
-const HOEHE = (CELL_SIZE + 1) * ZEILEN;
 
 /* ############################################## Main ######################################### */
 
@@ -51,8 +47,8 @@ function r_Pentomino() {
   m[getIndex(x0 + 2, y0 - 3)] = 1;
 }
 const Game = {
-  zeilen: ZEILEN,
-  spalten: SPALTEN,
+  rows: ZEILEN,
+  cols: SPALTEN,
   rounds: 0,
   matrix: null,
 
@@ -63,30 +59,30 @@ const Game = {
   colRight: null,
 
   new() {
-    const zeilen = this.zeilen;
-    const spalten = this.spalten;
+    const rows = this.rows;
+    const cols = this.cols;
 
-    this.matrix = new Uint8Array(zeilen * spalten);
+    this.matrix = new Uint8Array(rows * cols);
     this.rounds = 0;
 
     // Zeilenindizes vorberechnen
-    const rowAbove = new Int32Array(zeilen);
-    const rowBelow = new Int32Array(zeilen);
-    for (let y = 0; y < zeilen; y++) {
-      rowAbove[y] = y === 0 ? zeilen - 1 : y - 1;
-      rowBelow[y] = y === zeilen - 1 ? 0 : y + 1;
-      rowAbove[y] *= spalten;
-      rowBelow[y] *= spalten;
+    const rowAbove = new Int32Array(rows);
+    const rowBelow = new Int32Array(rows);
+    for (let y = 0; y < rows; y++) {
+      rowAbove[y] = y === 0 ? rows - 1 : y - 1;
+      rowBelow[y] = y === rows - 1 ? 0 : y + 1;
+      rowAbove[y] *= cols;
+      rowBelow[y] *= cols;
     }
     this.rowAbove = rowAbove;
     this.rowBelow = rowBelow;
 
     // Spaltenindizes vorberechnen
-    const colLeft = new Int32Array(spalten);
-    const colRight = new Int32Array(spalten);
-    for (let x = 0; x < spalten; x++) {
-      colLeft[x] = x === 0 ? spalten - 1 : x - 1;
-      colRight[x] = x === spalten - 1 ? 0 : x + 1;
+    const colLeft = new Int32Array(cols);
+    const colRight = new Int32Array(cols);
+    for (let x = 0; x < cols; x++) {
+      colLeft[x] = x === 0 ? cols - 1 : x - 1;
+      colRight[x] = x === cols - 1 ? 0 : x + 1;
     }
     this.colLeft = colLeft;
     this.colRight = colRight;
@@ -94,8 +90,8 @@ const Game = {
 
   // Komplettes Feld neu rechnen
   transformMatrix() {
-    const zeilen = this.zeilen;
-    const spalten = this.spalten;
+    const zeilen = this.rows;
+    const spalten = this.cols;
     const colors = PALETTE.length - 1;
     const old_matrix = this.matrix;
     const new_matrix = new Uint8Array(old_matrix.length);
@@ -146,74 +142,78 @@ const Game = {
   },
 };
 
-/* ###################################################### UI ################################################## */
+/* ###################################################### Counter ################################################## */
 
 // Rundenzähler
-class Counter {
-  value = 0;
-  id = "counter"; //
-  text = "Rounds: ";
+const counter = {
+  value: 0,
+  id: "counter",
+  text: "Rounds: ",
 
-  constructor() {
-    const counter = document.getElementById(this.id);
-    counter.textContent = this.text + this.value;
-  }
   inc() {
     const counter = document.getElementById(this.id);
     counter.textContent = this.text + this.value++;
-  }
+  },
   set(x = 0) {
     this.value = x;
     const counter = document.getElementById(this.id);
     counter.textContent = this.text + this.value;
+  },
+};
+
+/* ###################################################### Spielfeld malen ################################################## */
+
+class Display {
+  worker = new Worker("worker.js");
+  cellSize = 2;
+
+  constructor(cols, rows, palette) {
+    const width = (this.cellSize + 1) * cols;
+    const height = (this.cellSize + 1) * rows;
+    const worker = this.worker;
+    const canvas = document.getElementById("court");
+
+    canvas.width = width;
+    canvas.height = height;
+    canvas.style.border = "1px dashed gray";
+    canvas.style.margin = "1.5rem auto";
+    const offscreen = canvas.transferControlToOffscreen();
+
+    worker.postMessage(
+      {
+        type: "init",
+        canvas: offscreen,
+        width: width,
+        height: height,
+        cellSize: this.cellSize,
+        palette: palette,
+      },
+      [offscreen]
+    );
   }
-}
-const counter = new Counter();
 
-// Output rendern
-function drawCourt(matrix) {
-  const canvas = document.getElementById("court");
-  canvas.width = BREITE;
-  canvas.height = HOEHE;
-  canvas.style.border = "1px dashed gray";
-  canvas.style.margin = "1.5rem auto";
-
-  const ctx = canvas.getContext("2d");
-  const img = ctx.createImageData(BREITE, HOEHE);
-  const data = img.data;
-
-  const cellSize = CELL_SIZE + 1;
-  let idx = 0;
-  for (let y = 0; y < HOEHE; y += cellSize) {
-    for (let x = 0; x < BREITE; x += cellSize) {
-      const [r, g, b] = PALETTE[matrix[idx++]];
-
-      // Block setzen (CELL_SIZE × CELL_SIZE)
-      for (let dy = 0; dy < CELL_SIZE; dy++) {
-        const base = (y + dy) * BREITE + x;
-        for (let dx = 0; dx < CELL_SIZE; dx++) {
-          const i = (base + dx) << 2;
-          data[i] = r;
-          data[i + 1] = g;
-          data[i + 2] = b;
-          data[i + 3] = 255;
-        }
-      }
-    }
+  render(matrix) {
+    const mx = new Uint8Array(matrix);
+    this.worker.postMessage(
+      {
+        type: "draw",
+        matrix: mx,
+      },
+      [mx.buffer]
+    );
   }
-  ctx.putImageData(img, 0, 0);
 }
 
 /* ############################################## Setup and run ######################################### */
 
 const Simulation = {
-  interval: 0,
+  interval: 8,
   loopPtr: null,
   inProgress: false,
 
   loop() {
     Game.transformMatrix();
-    drawCourt(Game.matrix);
+    display.render(Game.matrix);
     counter.inc();
   },
 
@@ -230,6 +230,7 @@ const Simulation = {
   reset(mode = "pentomino") {
     this.stop();
     Game.new();
+    counter.set();
     switch (mode) {
       case "random":
         randomArray();
@@ -240,18 +241,12 @@ const Simulation = {
       default:
         break;
     }
-    drawCourt(Game.matrix);
+    display.render(Game.matrix);
   },
 };
 
+const display = new Display(SPALTEN, ZEILEN, PALETTE);
 Simulation.reset();
-
-// console.time("timer");
-// for (let i = 0; i < 100000; i++) {
-//   Game.transformMatrix();
-//   // drawCourt(Game.matrix);
-// }
-// console.timeEnd("timer");
 
 /* ############################################## Buttons ######################################### */
 
@@ -271,7 +266,6 @@ document.getElementById("control").addEventListener("click", () => {
 // Reset
 document.getElementById("Reset").addEventListener("click", () => {
   Simulation.reset("pentomino");
-  counter.set();
   const butt = document.getElementById("control");
   butt.textContent = "Start";
 });
@@ -281,21 +275,20 @@ document.getElementById("Edit").addEventListener("click", () => {
   Simulation.stop();
   const butt = document.getElementById("control");
   butt.textContent = "Continue";
-  drawCourt(Game.matrix);
+  display.render(Game.matrix);
   // viewbox_container_editor(Game.matrix);
 });
 
 // Random
 document.getElementById("Random").addEventListener("click", () => {
   Simulation.reset("random");
-  counter.set();
   const butt = document.getElementById("control");
   butt.textContent = "Start";
 });
 
 /* **************************************************************************************
 
-*  Canvas deutlich beschleunigt, create- und putImageData statt Quadrate zeichnen
+*  Canvas als Workerthread verpackt.
 
 *  Was fehlt:
 -- Mehr Optionen (Spielfeldgröße und Regeln ändern, Grid an/aus, Farben etc.)
