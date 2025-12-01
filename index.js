@@ -1,44 +1,40 @@
 /* ############################################## Globals ######################################### */
+
 // Farben
 const PALETTE = [
-  [0, 0, 0], // "#000000"
-  [255, 0, 0], // "#ff0000"
-  [0, 255, 0], // "#00ff00"
-  [255, 255, 0], // "#ffff00"
-  [0, 0, 255], // "#0000ff"
-  [255, 0, 255], // "#ff00ff"
-  [255, 255, 255], // "#ffffff"
-  [0, 255, 255], // "#00ffff"
-  [128, 0, 0], // "#800000"
-  [0, 128, 0], // "#008000"
-  [128, 128, 0], // "#808000"
-  [0, 0, 128], // "#000080"
-  [128, 0, 128], // "#800080"
-  [0, 128, 128], // "#008080"
-  [192, 192, 192], // "#c0c0c0"
-  [128, 128, 128], // "#808080"
+  "#000000",
+  "#ff0000",
+  "#00ff00",
+  "#ffff00",
+  "#0000ff",
+  "#ff00ff",
+  "#ffffff",
+  "#00ffff",
+  "#800000",
+  "#008000",
+  "#808000",
+  "#000080",
+  "#800080",
+  "#008080",
+  "#c0c0c0",
+  "#808080",
 ];
 
-// Spielfeldgröße
-const ZEILEN = 211;
-const SPALTEN = 523;
+// Spielkonfiguration
+const config = {
+  zeilen: 211,
+  spalten: 523,
+  updateInterval: 0,
+};
 
 /* ############################################## Main ######################################### */
 
-function randomArray() {
-  const m = Game.matrix;
-  const l = Game.matrix.length;
-  for (let i = 0; i < l; i++) {
-    m[i] = Math.random() * 2;
-  }
-}
-
 // "R-Pentomino" etwa mittig setzen (Startmuster)
 function r_Pentomino() {
-  const x0 = SPALTEN >>> 1;
-  const y0 = ZEILEN >>> 1;
+  const x0 = config.spalten >>> 1;
+  const y0 = config.zeilen >>> 1;
   const m = Game.matrix;
-  const getIndex = (x, y) => y * SPALTEN + x;
+  const getIndex = (x, y) => y * config.spalten + x;
 
   m[getIndex(x0 + 1, y0 - 1)] = 1;
   m[getIndex(x0 + 1, y0 - 2)] = 1;
@@ -47,8 +43,8 @@ function r_Pentomino() {
   m[getIndex(x0 + 2, y0 - 3)] = 1;
 }
 const Game = {
-  rows: ZEILEN,
-  cols: SPALTEN,
+  rows: config.zeilen,
+  cols: config.spalten,
   rounds: 0,
   matrix: null,
 
@@ -89,7 +85,7 @@ const Game = {
   },
 
   // Komplettes Feld neu rechnen
-  transformMatrix() {
+  update() {
     const zeilen = this.rows;
     const spalten = this.cols;
     const colors = PALETTE.length - 1;
@@ -140,6 +136,14 @@ const Game = {
     this.rounds++;
     this.matrix = new_matrix;
   },
+
+  randomize() {
+    const m = Game.matrix;
+    const l = Game.matrix.length;
+    for (let i = 0; i < l; i++) {
+      m[i] = Math.random() * 2;
+    }
+  },
 };
 
 /* ###################################################### Counter ################################################## */
@@ -164,7 +168,7 @@ const counter = {
 /* ###################################################### Spielfeld malen ################################################## */
 
 class Display {
-  worker = new Worker("worker.js");
+  worker = new Worker("canvas.js");
   cellSize = 2;
 
   constructor(cols, rows, palette) {
@@ -179,6 +183,11 @@ class Display {
     canvas.style.margin = "1.5rem auto";
     const offscreen = canvas.transferControlToOffscreen();
 
+    const palette_RGB = palette.map((hex) => {
+      const v = parseInt(hex.slice(1), 16);
+      return [(v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff];
+    });
+
     worker.postMessage(
       {
         type: "init",
@@ -186,7 +195,7 @@ class Display {
         width: width,
         height: height,
         cellSize: this.cellSize,
-        palette: palette,
+        palette: palette_RGB,
       },
       [offscreen]
     );
@@ -207,33 +216,39 @@ class Display {
 /* ############################################## Setup and run ######################################### */
 
 const Simulation = {
-  interval: 8,
-  loopPtr: null,
+  updateInterval: config.updateInterval,
+  lastTime: 0,
   inProgress: false,
 
-  loop() {
-    Game.transformMatrix();
-    display.render(Game.matrix);
-    counter.inc();
+  loop(time) {
+    if (!Simulation.inProgress) return;
+    if (time - Simulation.lastTime >= Simulation.updateInterval) {
+      Simulation.lastTime = time;
+
+      display.render(Game.matrix);
+      counter.inc();
+      Game.update();
+    }
+    requestAnimationFrame(Simulation.loop);
   },
 
   start() {
-    this.loopPtr = setInterval(this.loop, this.interval);
-    this.inProgress = true;
+    Simulation.inProgress = true;
+    Simulation.lastTime = performance.now();
+    requestAnimationFrame(Simulation.loop);
   },
 
   stop() {
-    clearInterval(this.loopPtr);
-    this.inProgress = false;
+    Simulation.inProgress = false;
   },
 
   reset(mode = "pentomino") {
-    this.stop();
+    Simulation.stop();
     Game.new();
     counter.set();
     switch (mode) {
       case "random":
-        randomArray();
+        Game.randomize();
         break;
       case "pentomino":
         r_Pentomino();
@@ -245,7 +260,7 @@ const Simulation = {
   },
 };
 
-const display = new Display(SPALTEN, ZEILEN, PALETTE);
+const display = new Display(config.spalten, config.zeilen, PALETTE);
 Simulation.reset();
 
 /* ############################################## Buttons ######################################### */
@@ -288,7 +303,8 @@ document.getElementById("Random").addEventListener("click", () => {
 
 /* **************************************************************************************
 
-*  Canvas als Workerthread verpackt.
+*  Performance: Canvas als Workerthread verpackt, Rendering via ImageData statt fillRect.
+*  Farbpalette: Altes Datenformat wieder eingeführt, weil einfach schönerer Code. Umrechnung in RGB beim Initialisieren des Workers. 
 
 *  Was fehlt:
 -- Mehr Optionen (Spielfeldgröße und Regeln ändern, Grid an/aus, Farben etc.)
